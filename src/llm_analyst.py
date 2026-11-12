@@ -14,17 +14,14 @@ class Agent:
         self.user_context = self._loadUserContext()
 
     def _loadUserContext(self) -> str:
-        """Construit la fiche d'identité à partir du fichier .env."""
         return f"""
         - Nom complet : {os.getenv('USER_FIRST_NAME', '')} \
             {os.getenv('USER_LAST_NAME', '')}
-        - Poste / Statut : {os.getenv('USER_ROLE', '')} chez \
+        - Centre d'interet: {os.getenv('USER_ROLE', '')} chez \
             {os.getenv('USER_COMPANY', '')}
         - Localisation : {os.getenv('USER_CITY', '')}
-        - Valeurs et état d'esprit : {os.getenv('USER_VALUES', '')}
         - Style d'écriture : {os.getenv('USER_TONE', '')}
         - Règles strictes à respecter : {os.getenv('USER_RULES', '')}
-        - Signature à utiliser : {os.getenv('USER_SIGNATURE', '')}
         - Famille: {os.getenv('USER_FAMILY', '')}
         - Amis: {os.getenv('USER_FRIENDS', '')}
         - Mail personnel: {os.getenv('GMAIL_ADDR'), ''}
@@ -32,7 +29,8 @@ class Agent:
 
     def isAnswering(self, mail: Mail) -> None:
         prompt_mail = f"De : {mail.sender}\nSujet : {mail.subject}\n\
-            Message :\n{mail.message}"
+            Message:\n{mail.message}\n\
+            Piece jointe: {" ".join(mail.attachment)}"
 
         general_prompt = f"""
         Tu es un assistant chargé de trier les e-mails.

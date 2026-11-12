@@ -9,6 +9,8 @@ def main():
     mail_fetcher = MailFetcher()
     unread_mails = mail_fetcher.getUnreadMail()
     mail_fetcher.disconnect()
+    if not unread_mails:
+        print("No unread email !")
     agent = Agent()
     mails_to_answer = []
 

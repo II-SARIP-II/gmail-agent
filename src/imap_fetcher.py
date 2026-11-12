@@ -33,47 +33,81 @@ class MailFetcher:
         mail_ids = messages[0].split()
         return mail_ids
 
+    @staticmethod
+    def _decode_header_value(raw_value: str | None) -> str:
+        if not raw_value:
+            return ""
+        decoded_fragments: list[str] = []
+        for part, encoding in decode_header(raw_value):
+            if isinstance(part, bytes):
+                decoded_fragments.append(
+                    part.decode(encoding or "utf-8", errors="replace")
+                )
+            else:
+                decoded_fragments.append(str(part))
+        return "".join(decoded_fragments)
+
     def getUnreadMail(self) -> list[Mail]:
         mail_ids = self.getUnreadMailId()
         mails: list[Mail] = []
         for mail_id in mail_ids:
             _, data = self.gmail.fetch(mail_id, "(RFC822)")
 
-            for response_part in data:
-                if isinstance(response_part, tuple):
-                    msg = email.message_from_bytes(response_part[1])
+            for mail_id in mail_ids:
+                _, data = self.gmail.fetch(mail_id, "(RFC822)")
 
-                    raw_subject = msg["Subject"]
-                    subject = "Sans sujet"
-                    if raw_subject:
-                        decoded_parts = decode_header(raw_subject)
-                        subject_bytes, encoding = decoded_parts[0]
-                        if isinstance(subject_bytes, bytes):
-                            subject = subject_bytes.decode(
-                                encoding if encoding else "utf-8",
-                                errors="replace"
-                            )
-                        else:
-                            subject = str(subject_bytes)
+                for response_part in data:
+                    if isinstance(response_part, tuple):
+                        msg = email.message_from_bytes(response_part[1])
 
-                    body = self.getEmailBody(msg)
+                        subject = (
+                            self._decode_header_value(msg["Subject"])
+                            or "Sans sujet"
+                        )
+                        sender = (
+                            self._decode_header_value(msg["From"])
+                            or "Expéditeur inconnu"
+                        )
+                        body = self.getEmailBody(msg)
+                        attachments = self.getAttachmentTitles(msg)
 
-                    raw_date = msg["Date"]
-                    mail_date = (
-                        parsedate_to_datetime(raw_date)
-                        if raw_date
-                        else datetime.now()
-                    )
+                        raw_date = msg["Date"]
+                        mail_date = (
+                            parsedate_to_datetime(raw_date)
+                            if raw_date
+                            else datetime.now()
+                        )
 
-                    mail_obj = Mail(
-                        id=mail_id,
-                        sender=msg.get("From", "Expéditeur inconnu"),
-                        date=mail_date,
-                        subject=subject,
-                        message=body,
-                    )
-                    mails.append(mail_obj)
+                        mail_obj = Mail(
+                            id=mail_id.decode() if isinstance(mail_id, bytes) else mail_id,
+                            sender=sender,
+                            date=mail_date,
+                            subject=subject,
+                            message=body,
+                            attachment=attachments,
+                        )
+                        mails.append(mail_obj)
         return mails
+
+    def getAttachmentTitles(self, msg: Message) -> list[str]:
+        titles: list[str] = []
+
+        for part in msg.walk():
+            if part.get_content_maintype() == "multipart":
+                continue
+
+            raw_filename = part.get_filename()
+            content_disposition = str(part.get("Content-Disposition", ""))
+
+            if raw_filename or "attachment" in content_disposition:
+                filename = (
+                    self._decode_header_value(raw_filename)
+                    if raw_filename
+                    else "piece_jointe_sans_nom"
+                )
+                titles.append(os.path.basename(filename))
+
+        return titles
 
     def getEmailBody(self, msg: Message) -> str:
         body = ""
