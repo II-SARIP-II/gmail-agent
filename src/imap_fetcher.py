@@ -9,16 +9,21 @@ from typing import Any
 
 from dotenv import load_dotenv
 
-from models.mail import Mail
+from src.models.mail import Mail
 
 load_dotenv()
 
 
 class MailFetcher:
     def __init__(self):
-        self.gmail = imaplib.IMAP4_SSL("imap.gmail.com", 993)
         EMAIL = os.environ["GMAIL_ADDR"]
         PASSWORD = os.environ["GMAIL_PASSWORD"]
+        IMAP_LINK = os.environ["GMAIL_IMAP_LINK"]
+        IMAP_PORT = os.environ["GMAIL_IMAP_PORT"]
+        if not EMAIL or not PASSWORD or not IMAP_LINK or not IMAP_PORT:
+            raise ValueError("EMAIL or PASWORD or IMAP field \
+                are not configured correctly in .env")
+        self.gmail = imaplib.IMAP4_SSL(IMAP_LINK, IMAP_PORT)
         self.gmail.login(EMAIL, PASSWORD)
 
     def getUnreadMailId(self) -> list[Any]:
@@ -61,6 +66,7 @@ class MailFetcher:
                     )
 
                     mail_obj = Mail(
+                        id=mail_id,
                         sender=msg.get("From", "Expéditeur inconnu"),
                         date=mail_date,
                         subject=subject,
